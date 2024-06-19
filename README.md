@@ -8,4 +8,5 @@ There are a couple of things you need to get started:
    This is a very simple key-value pair file of what you want the proxies to do. The key is the name of the node (the "hostname") that will appear on your tailnet, and the value is the URL you want it to forward to. Check out the included proxy.conf, which is the configuration that I use personally.
 2. .env file
   This is where you will keep your Tailscale secret key. It should be TS_AUTHKEY=tskey-auth-******. You can create one of these by logging in, going to Settings, and then Create New Key. There are a couple of different options for these; you probably want to make them Reusable and Ephemeral, so that you can create multiple nodes multiple times, and they disappear when the program isn't running. 
-3. 
+3. go run .
+   (EDIT): there appears to be an issue with one of the dependencies of tsnet that causes Go to fail to resolve the dependencies. I'll update this once it's fixed and I have time to figure out what is going on. 
