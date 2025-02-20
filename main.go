@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"log"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -42,6 +43,31 @@ func parseProxies(configPath string) map[string]string {
 	return proxies
 }
 
+func udsReverseProxy(url *url.URL) (udsProxy *httputil.ReverseProxy) {
+	uds := url.Path
+	proxy := &httputil.ReverseProxy{
+		Director: func(req *http.Request) {
+			if (req.URL.Scheme == "") {
+				req.URL.Scheme = "http" // Adjust if needed
+			}
+			req.URL.Host = "unix"    // Placeholder, not used for Unix sockets
+			//req.URL.Path = "" // Path to your Unix socket
+			req.Proto = "HTTP/1.1"
+			req.ProtoMajor = 1
+			req.ProtoMinor = 1
+			req.Header.Set("X-Real-IP", req.RemoteAddr)
+			req.Header.Set("X-Original-URI", strings.Split(req.RequestURI, ":")[0])
+			req.Header.Set("X-Forwarded-Port", "80")
+		},
+		Transport: &http.Transport{
+			Dial: func(network, addr string) (net.Conn, error) {
+				return net.Dial("unix", uds)
+			},
+		},
+	}
+	return proxy
+}
+
 func createProxy(hostname, origin string) error {
 	defaultDirectory, err := os.UserConfigDir()
 	if err != nil {
@@ -70,11 +96,15 @@ func createProxy(hostname, origin string) error {
 	defer listener.Close()
 
 	originServerURL, err := url.Parse(origin)
-    if err != nil {
-        log.Fatal("invalid origin server URL")
-    }
-
-	reverseProxy := httputil.NewSingleHostReverseProxy(originServerURL)
+	if err != nil {
+		log.Fatal("invalid origin server URL")
+	}
+	var reverseProxy *httputil.ReverseProxy
+	if (originServerURL.Scheme == "unix") {
+		reverseProxy = udsReverseProxy(originServerURL)
+	} else {
+		reverseProxy = httputil.NewSingleHostReverseProxy(originServerURL)
+	}
 
 	err = http.Serve(listener, reverseProxy)
 	if err != nil {
